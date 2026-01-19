@@ -1,0 +1,39 @@
+# Python dependencies for Lyric-Audio Alignment
+
+# Core ML
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+
+# Audio Processing
+librosa>=0.10.0
+soundfile>=0.12.0
+pydub>=0.25.0
+demucs>=4.0.0
+
+# Feature Extraction & Alignment
+numpy>=1.24.0
+scipy>=1.10.0
+python-speech-features>=0.6
+
+# TTS for DTW
+gTTS>=2.3.0
+
+# Phoneme Processing
+g2p-en>=2.1.0
+pronouncing>=0.2.0
+
+# API
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+python-multipart>=0.0.6
+pydantic-settings>=2.0.0
+
+# Dataset
+DALI-dataset>=1.0.0
+yt-dlp>=2023.7.6
+
+# Utils
+tqdm>=4.65.0
+pyyaml>=6.0
+python-dotenv>=1.0.0

@@ -1,0 +1,91 @@
+# ANTIGRAVITY PROJECT ROADMAP: Lyric-Audio Alignment & Visualization
+
+Bu döküman, Lyric-Audio Alignment projesinin geliştirme aşamalarını, veri hazırlığından Next.js arayüzüne kadar adım adım tanımlar.
+
+## FAZ 1: Veri Hazırlığı ve Altyapı (Python)
+Hedef: DALI veri setini indirmek, proje yapısını kurmak ve ses işleme hattını hazırlamak.
+
+1. [x] **Proje Kurulumu**
+    - Git reposunun (Antigravity) başlatılması.
+    - Python sanal ortamının (venv/conda) kurulması.
+    - `requirements.txt` oluşturulması (torch, librosa, numpy, demucs, transformers vb.).
+
+2. [ ] **Veri Seti Edinimi (DALI)**
+    - [cite_start]GitHub (gabolsgabs/DALI) üzerinden DALI araçlarının kurulması[cite: 52].
+    - Veri setinin indirilmesi ve parse edilmesi.
+    - **Alt Küme Oluşturma:** Geliştirme hızı için şimdilik küçük bir "Dev Set" (örneğin 10 şarkı) ayrılması.
+
+3. [x] **Preprocessing & Source Separation**
+    - [cite_start]Ses dosyalarının 16 kHz Mono formata dönüştürülmesi[cite: 37].
+    - [cite_start]**Hybrid Demucs** entegrasyonu: Şarkıların vokal (vocals) ve enstrüman (other) olarak ayrıştırılması[cite: 9, 37].
+    - Ayrıştırılan vokal dosyalarının kaydedilmesi.
+
+## FAZ 2: Hizalama Modellerinin Geliştirilmesi (Python Core)
+Hedef: Proposal dokümanında belirtilen 3 farklı yaklaşımın uygulanması.
+
+4. [x] **Model 1: DTW Baseline (Klasik Yöntem)**
+    - [cite_start]Ayrışmış vokallerden MFCC (39-dim) özniteliklerinin çıkarılması[cite: 41].
+    - [cite_start]Şarkı sözlerinin (Lyrics) TTS (Text-to-Speech) ile sentezlenip ses dosyasına çevrilmesi[cite: 40].
+    - Sentetik ses ile gerçek vokal arasında Dynamic Time Warping (DTW) uygulanması.
+
+5. [x] **Model 2: HMM-Based Alignment (İstatistiksel Yöntem)**
+    - [cite_start]Fonem tabanlı (Phoneme-level) akustik modelin hazırlanması[cite: 43].
+    - [cite_start]Viterbi algoritması ile "Forced Alignment" işleminin yapılması[cite: 44].
+    - CMU Pronunciation Dictionary entegrasyonu.
+
+6. [x] **Model 3: Deep Learning (Modern Yöntem)**
+    - [cite_start]`wav2vec2-base` modelinin HuggingFace üzerinden yüklenmesi (LibriSpeech fine-tuned)[cite: 46].
+    - CTC (Connectionist Temporal Classification) kaybı ile hizalama yapılması.
+    - [cite_start]Çerçeve (frame) etiketlerine ihtiyaç duymadan sadece transkript ile hizalamanın sağlanması[cite: 46].
+
+7. [x] **Standardizasyon (Output Formatting)**
+    - Tüm modellerin çıktısının Frontend'in anlayacağı tek bir JSON formatına dönüştürülmesi.
+    - Örnek Format:
+      ```json
+      {
+        "model": "wav2vec2",
+        "words": [
+          {"text": "Hello", "start": 1.25, "end": 1.80},
+          {"text": "World", "start": 1.85, "end": 2.10}
+        ]
+      }
+      ```
+
+## FAZ 3: Backend API (Python - FastAPI/Flask)
+Hedef: Python modellerini Next.js arayüzüne bağlamak.
+
+8. [x] **API Geliştirme**
+    - `/upload`: Ses dosyası ve şarkı sözü yükleme endpoint'i.
+    - `/process`: Seçilen model (DTW/HMM/CTC) ile hizalamayı başlatan endpoint.
+    - `/results`: JSON hizalama verisini döndüren endpoint.
+    - `/audio`: İşlenmiş (veya ham) ses dosyasını stream eden endpoint.
+
+## FAZ 4: Frontend & Görselleştirme (Next.js)
+Hedef: Sonuçların kullanıcı dostu bir arayüzde karşılaştırmalı gösterimi.
+
+9. [x] **UI Kurulumu**
+    - Next.js projesinin oluşturulması (`npx create-next-app`).
+    - UI Kütüphanesi seçimi (Tailwind CSS, Shadcn/ui vb.).
+
+10. [x] **Audio Player Bileşeni**
+    - `wavesurfer.js` veya benzeri bir kütüphane ile ses dalga formunun (waveform) çizdirilmesi.
+    - Ses çalarken ilerleme çubuğunun yönetimi.
+
+11. [x] **Lyrics Hizalama Görünümü (Karaoke Modu)**
+    - Backend'den gelen JSON verisine göre, ses çaldıkça ilgili kelimenin highlight edilmesi (parlatılması).
+    - Kelimeye tıklandığında sesin o saniyeye gitmesi.
+
+12. [x] **Karşılaştırma Modu (Comparison View)**
+    - DALI Ground Truth (Gerçek Veri) ile Model Tahminlerinin alt alta görselleştirilmesi.
+    - Hata payının (zaman farkının) renkli barlarla gösterilmesi (Örn: Yeşil = Tam isabet, Kırmızı = Kayma var).
+
+## FAZ 5: Değerlendirme ve Raporlama
+[cite_start]Hedef: Projenin başarısının ölçülmesi[cite: 56].
+
+13. [x] **Metrik Hesaplama**
+    - [cite_start]MAE (Mean Absolute Error) hesaplama modülü[cite: 57].
+    - [cite_start]Doğruluk Oranı (Percentage Correct) hesaplama[cite: 58].
+    - [cite_start]RTF (Real-Time Factor) analizi (Hız testi)[cite: 59].
+
+14. [ ] **Final Raporu**
+    - Next.js üzerinde metriklerin grafiksel (Chart.js vb.) gösterimi.

@@ -1,0 +1,51 @@
+# PROJE SPESİFİKASYONU: Lyric-Audio Alignment Comparison
+
+## 1. Proje Kimliği
+* [cite_start]**Tam Başlık:** A Comparative Study of Lyric-Audio Alignment Methods: From Dynamic Time Warping to Deep Learning Approaches [cite: 1, 2]
+* [cite_start]**Yazarlar:** Murat Emirhan Aykuyt, Mehmet Daşkaya [cite: 3, 5]
+* **Proje Kod Adı:** Antigravity
+
+## 2. Temel Amaç ve Kapsam
+[cite_start]Bu projenin amacı, İngilizce pop müzik türündeki polifonik (çok sesli) kayıtlarda şarkı sözlerini (lyrics) ses dosyası (audio) ile kelime düzeyinde (word-level) senkronize eden üç farklı yöntemi karşılaştırmalı olarak analiz etmektir. [cite: 8, 30]
+
+[cite_start]**Temel Araştırma Sorusu:** Kaynak ayrıştırma (source separation) işleminin hizalama kalitesine etkisi nedir ve klasik yöntemlerin yorumlanabilirliği ile nöral yöntemlerin doğruluğu arasındaki takas (tradeoff) nasıldır? [cite: 9, 10]
+
+## 3. Metodoloji ve Pipeline
+
+### [cite_start]A. Ön İşleme (Preprocessing) [cite: 37]
+Tüm yöntemler için ortak standartlar uygulanacaktır:
+* **Format:** 16 kHz Mono resampling.
+* **Source Separation:** "Hybrid Demucs" modeli kullanılarak ses dosyasının vokal (vocals) ve enstrümantal olarak ayrıştırılması. Ayrıştırılan vokal kanalı hizalama için kullanılacaktır.
+
+### B. Karşılaştırılacak Modeller
+
+#### [cite_start]Model 1: DTW-Based Alignment (Baseline) [cite: 40, 41]
+* **Yöntem:** Dinamik Zaman Bükme (Dynamic Time Warping).
+* **Teknik:** Şarkı sözleri TTS (Text-to-Speech) ile sentezlenir. Sentetik ses ile gerçek vokal arasında hizalama yapılır.
+* **Öznitelikler:** 39-boyutlu MFCC (25ms frame, 10ms hop).
+* **Optimizasyon:** Sakoe-Chiba bant kısıtlamaları.
+
+#### [cite_start]Model 2: HMM-Based Alignment [cite: 43, 44]
+* **Yöntem:** Saklı Markov Modelleri (Hidden Markov Models).
+* **Teknik:** Fonem (phoneme) tabanlı akustik modeller kullanılır. Her fonem için 3 durumlu (state) HMM.
+* **Sözlük:** CMU Pronunciation Dictionary (Telaffuz sözlüğü) ve OOV (sözlük dışı) kelimeler için G2P.
+* **Algoritma:** Viterbi Forced Alignment.
+
+#### [cite_start]Model 3: Deep Learning Approach (CTC) [cite: 45, 46]
+* **Yöntem:** Connectionist Temporal Classification (CTC).
+* **Model:** `wav2vec2-base` (LibriSpeech üzerinde fine-tune edilmiş).
+* **Teknik:** Çerçeve düzeyinde (frame-level) etiket gerektirmeyen, sadece transkript ile çalışan zorunlu hizalama (Forced Alignment). `TorchAudio` kütüphanesi kullanılacaktır.
+
+## 4. Değerlendirme (Evaluation)
+
+### [cite_start]Veri Setleri (Benchmarks) [cite: 56]
+Performans ölçümü aşağıdaki standart veri setleri üzerinde yapılacaktır:
+1.  **Hansen:** 9 şarkı.
+2.  **Mauch:** 8 şarkı kesiti.
+3.  **Jamendo:** 20 şarkı (10 farklı türden).
+*(Not: Model eğitimi veya genel testler için DALI veri seti de kullanılabilir.)*
+
+### [cite_start]Metrikler [cite: 57, 58, 59]
+1.  **MAE (Mean Absolute Error):** Tahmin edilen ve gerçek kelime başlangıç zamanları arasındaki ortalama mutlak fark.
+2.  **PC@τ (Percentage Correct):** Tolerans eşiği (τ=0.3s) içinde doğru tahmin edilen başlangıçların oranı.
+3.  **RTF (Real-Time Factor):** İşleme süresinin ses süresine oranı (Verimlilik ölçümü).

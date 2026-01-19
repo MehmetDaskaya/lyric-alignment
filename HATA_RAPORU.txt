@@ -1,0 +1,71 @@
+# SİSTEM ANALİZİ VE HATA RAPORU
+# Tarih: 2026-01-18
+# Durum: KRİTİK VERİ UYUMSUZLUĞU
+
+Bu rapor, Lyric-Audio Alignment projesinin neden beklendiği gibi çalışmadığını ve mevcut veri yapısının sistem gereksinimleriyle neden uyumsuz olduğunu detaylandırmaktadır.
+
+================================================================================
+TEMEL SORUN: Veri Kaynağı ve Format Uyuşmazlığı
+================================================================================
+
+SORUN TANIMI:
+Uygulama, DALI (Dataset of Aligned Lyric Information) veri seti formatına dayalı olarak tasarlanmıştır. Ancak mevcut sistemde kullanılan veriler, DALI veri setinden değil, manuel olarak eklenmiş "Data Klasörü" (backend/data) içindeki standart MP3 ve düz metin (.txt) dosyalarından oluşmaktadır.
+
+MEVCUT DURUM NEDEN ÇALIŞMIYOR?
+
+1. Ground Truth (Referans Veri) Eksikliği:
+   - DALI veri seti, her kelimenin şarkıdaki saniyesini içeren "zaman damgalı" (timestamped) annotation dosyaları sağlar.
+   - Mevcut `.txt` dosyaları sadece şarkı sözlerini içerir, zaman bilgisi YOKTUR.
+   - SONUÇ: Modellerin ürettiği hizalamayı karşılaştıracak bir "doğru cevap" (Ground Truth) olmadığı için:
+     - Başarı ölçümü (Accuracy, MAE) yapılamıyor.
+     - "Comparison View" grafikleri çalışamaz.
+     - Modellerin ne kadar iyi çalıştığı bilinemez.
+
+2. DALIHelper Entegrasyonu Kopukluğu:
+   - `backend/utils/dali_helper.py` modülü, DALI formatındaki `.gz` dosyalarını okumak için tasarlanmıştır.
+   - Mevcut sistem ise bu modülü bypass edip doğrudan düz dosya okuma (simple file reading) yapmaktadır.
+   - SONUÇ: Projenin iskeleti DALI üzerine kurulu iken, veri akışı tamamen farklı ve ilkel bir yöntemle çalışmaktadır.
+
+3. Metrik Hesaplama İmkansızlığı:
+   - Kullanıcının belirttiği "Hangilerinin ne kadar performans verdiğini öğrenmem gerekiyor" hedefi, mevcut verilerle imkansızdır.
+   - Performans için: |Tahmin Edilen Zaman - Gerçek Zaman| formülü gereklidir.
+   - Gerçek Zaman (Ground Truth) elimizde yoktur.
+
+================================================================================
+SON 10 HATA VE KÖK SEBEPLERİ (YENİLENMİŞ)
+================================================================================
+
+1. HATA: Batch Job metrics boş dönüyor
+   SEBEP: Hizalama işlemi bitse bile, karşılaştırma yapılacak Ground Truth verisi olmadığı için MAE veya Accuracy hesaplanamıyor. Kod hata vermemek için metriği boş geçiyor veya 0 döndürüyor.
+
+2. HATA: `Settings object has no attribute MFCC_HOP_LENGTH`
+   SEBEP: DTW algoritması, klasik ses işleme parametrelerine ihtiyaç duyar. Kod tabanı DALI gereksinimlerine göre yazılmış ancak konfigürasyon manuel dosyalar için eksik kalmıştır.
+
+3. HATA: Lambda Closure Sorunları (Batch Processing)
+   SEBEP: Hızlıca yapılan "yama" çözümler (patching), mimari bütünlüğü bozduğu için bu tip kodlama hataları ortaya çıkmaktadır. DALI veri akışı olsaydı, `DALI.get_the_DALI_dataset()` iteratörü kullanılacak ve bu tip loop sorunları yaşanmayacaktı.
+
+4. HATA: Aligner Signature Uyuşmazlığı (String vs Numpy)
+   SEBEP: DALI entegrasyonu `DALIHelper` üzerinden ses verisini otomatik yüklerken (get_audio), mevcut sistemde dosya yolları manuel yönetildiği için tip uyuşmazlığı yaşanmıştır.
+
+5. HATA: Frontend "Loading" ekranında takılmalar / Tutarsız süreler
+   SEBEP: DALI verisi önceden işlenmiş (pre-computed features) olabilirken, mevcut sistemde ham MP3 dosyaları her seferinde sıfırdan yüklendiği ve işlendiği (source separation, feature extraction) için işlem süreleri çok uzamaktadır.
+
+================================================================================
+ÇÖZÜM VE YOL HARİTASI
+================================================================================
+
+Projenin amacına ulaşması için "Veri Kaynağı" sorunu KESİN olarak çözülmelidir.
+
+SEÇENEK A: DALI Veri Setine Geçiş (ÖNERİLEN)
+1. DALI veri seti erişim token'ı edinilmeli.
+2. `download_dali.py` scripti ile gerçek DALI verileri (audio + annotations) indirilmeli.
+3. `DALIHelper` sınıfı aktif edilmeli ve tüm sistem bu yapıya bağlanmalı.
+4. Bu sayede Ground Truth verisi elde edilecek ve metrikler hesaplanabilecektir.
+
+SEÇENEK B: Mevcut Veriyi "Etiketleme" (ZORLU)
+1. Mevcut 10 şarkı için manuel olarak veya başka bir araçla (örn: Sonic Visualiser) kelime-zaman damgaları oluşturulmalı.
+2. Bu veriler DALI formatına benzer bir JSON/XML yapısına dönüştürülmeli.
+3. Ancak bu süreç çok zaman alıcıdır ve hataya açıktır.
+
+KARAR:
+Mevcut yapı "kör uçuş" yapmaktadır (hedef veri yok). Projenin başarısı için SEÇENEK A (DALI Veri Seti) uygulanmalıdır.
