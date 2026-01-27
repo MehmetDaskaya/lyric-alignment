@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     MODEL_CACHE_DIR: Path = BASE_DIR / "model_cache"
     
     # Dataset Paths
-    DATA_DIR: Path = BASE_DIR.parent / "data"
-    DALI_AUDIO_PATH: Path = DATA_DIR / "audio"
+    DATA_DIR: Path = BASE_DIR / "data"  # Changed to be inside backend for consistency or keep relative
+    # Actually, keeping it as is:
+    # DATA_DIR: Path = BASE_DIR.parent / "data"
+    
+    # Local DALI v1.0 Data
+    DALI_ROOT: Path = BASE_DIR.parent / "DALI_v1.0"
+    DALI_AUDIO_PATH: Path = BASE_DIR.parent / "data" / "dali_audio"
     
     # Audio settings
     SAMPLE_RATE: int = 16000
@@ -40,3 +45,4 @@ settings.UPLOAD_DIR.mkdir(exist_ok=True)
 settings.OUTPUT_DIR.mkdir(exist_ok=True)
 settings.MODEL_CACHE_DIR.mkdir(exist_ok=True)
 settings.DATA_DIR.mkdir(exist_ok=True)
+settings.DALI_AUDIO_PATH.mkdir(parents=True, exist_ok=True)

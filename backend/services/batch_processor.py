@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from config import settings
-from utils.dali_loader import dali_loader
+from services.dali_service import dali_service
 
 logger = logging.getLogger(__name__)
 
@@ -172,18 +172,16 @@ class BatchProcessor:
     async def _process_job(self, job: BatchJob):
         """Process all songs in the job."""
         try:
-            from models.dtw_aligner import DTWAligner
-            from models.hmm_aligner import HMMAligner
-            from models.ctc_aligner import CTCAligner
+            from models.dtw_aligner import dtw_aligner
+            from models.hmm_aligner import hmm_aligner
+            from models.ctc_aligner import ctc_aligner
             
+            # Using singleton instances now as they are stateless mostly
             aligners = {
-                'dtw': DTWAligner(),
-                'hmm': HMMAligner(),
-                'ctc': CTCAligner()
+                'dtw': dtw_aligner,
+                'hmm': hmm_aligner,
+                'ctc': ctc_aligner
             }
-            
-            audio_dir = settings.DATA_DIR / "audio"
-            lyrics_dir = settings.DATA_DIR / "lyrics"
             
             processed = 0
             
@@ -191,13 +189,17 @@ class BatchProcessor:
                 song_id = song_result.song_id
                 job.current_song = song_id
                 
-                # Get info from DALI loader
+                # Get info from DALI service
                 try:
-                    song_info = dali_loader.get_song_info(song_id)
-                    lyrics_text = " ".join([note['text'] for note in song_info['lyrics']])
+                    song_metadata = dali_service.get_metadata(song_id)
+                    song_result.song_name = f"{song_metadata.get('artist')} - {song_metadata.get('title')}"
                     
+                    lyrics_text = dali_service.get_lyrics(song_id)
+                    if not lyrics_text:
+                        raise ValueError("No lyrics found")
+
                     # Ensure audio exists
-                    audio_path = dali_loader.download_audio(song_id)
+                    audio_path = dali_service.get_audio_path(song_id, download_if_missing=True)
                     if not audio_path:
                          raise FileNotFoundError(f"Could not download/find audio for {song_id}")
                          
@@ -206,7 +208,7 @@ class BatchProcessor:
                     song_result.error = f"Failed to load DALI data for {song_id}: {e}"
                     continue
 
-                lyrics = lyrics_text # Use DALI text
+                lyrics = lyrics_text
                 
                 # Load audio
                 try:
@@ -257,10 +259,10 @@ class BatchProcessor:
                         
                         # Calculate accuracy metrics against Ground Truth
                         try:
-                            gt_data = dali_loader.get_ground_truth_alignment(song_id)
+                            gt_data = dali_service.get_ground_truth_alignment(song_id)
                             metrics = self.calculate_metrics(
                                 result.get('words', []),
-                                gt_data.get('words', [])
+                                gt_data
                             )
                             song_result.metrics[model_name].update(metrics)
                         except Exception as e:

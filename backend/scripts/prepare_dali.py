@@ -1,6 +1,7 @@
 """
-Script to prepare DALI dev set
-Downloads a few songs and their annotations for development
+Script to verify DALI dev set availability.
+Scans the local DALI_v1.0 folder (via DaliService) and checks if corresponding audio is available.
+Downloads audio for a few entries if missing.
 """
 import logging
 import sys
@@ -9,66 +10,51 @@ from pathlib import Path
 # Add backend to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.dali_loader import dali_loader
+from services.dali_service import dali_service
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def main():
-    logger.info("Setting up DALI dev set...")
+    logger.info("Initializing DALI readiness check...")
     
-    # Initialize metadata
-    try:
-        dali_loader.download_dataset_metadata()
-    except ImportError:
-        logger.error("DALI library not found. Please install: pip install DALI-dataset yt-dlp")
+    # 1. Check annotations
+    all_ids = dali_service.get_all_ids()
+    if not all_ids:
+        logger.error(f"No .gz files found in {settings.DALI_ROOT}. Please ensure DALI v1.0 dataset is placed there.")
         return
     
-    # Get list of songs (filtered for English preferably if available in metadata, otherwise just first 5)
-    # DALI 1.0 has many songs. Let's try to get a few specific ones if we knew IDs, 
-    # but for now just first 5 safe ones.
-    songs = dali_loader.list_songs(limit=5)
+    logger.info(f"Found {len(all_ids)} annotation files in {settings.DALI_ROOT}.")
     
-    if not songs:
-        logger.warning("No songs found in DALI metadata. Trying to update metadata...")
-        dali_loader.download_dataset_metadata()
-        songs = dali_loader.list_songs(limit=5)
-
-    if not songs:
-        logger.error("Still no songs found. Check internet connection or DALI repo access.")
-        return
-
+    # 2. Check audio for a subset (dev set)
+    limit = 5
     success_count = 0
-    for song in songs:
-        logger.info(f"Processing {song['artist']} - {song['title']} ({song['id']})...")
+    
+    # Try to pick 5 random ones or specific ones if we had a list.
+    # For now, just take first 5 from the list
+    dev_ids = all_ids[:limit]
+    
+    for entry_id in dev_ids:
+        logger.info(f"Checking audio for {entry_id}...")
         
-        try:
-            # Download audio
-            audio_path = dali_loader.download_audio(song['id'])
-            if not audio_path:
-                logger.warning(f"Skipping {song['id']} due to download failure")
-                continue
-
-            # Export ground truth
-            gt = dali_loader.get_ground_truth_alignment(song['id'])
-            
-            # Save GT json
-            dali_dir = settings.DATA_DIR / "dali"
-            dali_dir.mkdir(parents=True, exist_ok=True)
-            output_path = dali_dir / f"{song['id']}_gt.json"
-            
-            import json
-            with open(output_path, "w") as f:
-                json.dump(gt, f, indent=2)
-                
-            logger.info(f"Successfully prepared {song['id']}")
+        # This will check existence or download
+        audio_path = dali_service.get_audio_path(entry_id, download_if_missing=True)
+        
+        if audio_path:
+            logger.info(f"Audio ready: {audio_path.name}")
             success_count += 1
             
-        except Exception as e:
-            logger.error(f"Failed to process {song['id']}: {e}")
-            
-    logger.info(f"Preparation complete. Successfully prepared {success_count}/{len(songs)} songs.")
+            # Verify we can read metadata
+            meta = dali_service.get_metadata(entry_id)
+            logger.info(f"  - Artist: {meta.get('artist')}")
+            logger.info(f"  - Title: {meta.get('title')}")
+        else:
+            logger.warning(f"Audio missing/download failed for {entry_id}")
+
+    logger.info(f"Readiness Check Complete. {success_count}/{limit} dev set songs ready.")
+    if success_count == 0:
+        logger.warning("No audio files are ready. Ensure yt-dlp is installed and internet connection is active, or manually place audio files in data/dali_audio.")
 
 if __name__ == "__main__":
     main()

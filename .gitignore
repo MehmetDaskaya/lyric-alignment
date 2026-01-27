@@ -42,4 +42,8 @@ pip-delete-this-directory.txt
 backend/outputs/
 backend/data/audio/
 backend/data/lyrics/
+backend/data/dali_audio/
+backend/data/training_sets/dali_segmented_train.jsonl
+DALI_v1.0/
+data/dali_audio/
 # Keep gitkeep files if any, but ignore content

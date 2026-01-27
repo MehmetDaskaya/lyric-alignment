@@ -16,21 +16,29 @@ logger = logging.getLogger(__name__)
 async def verify_batch():
     logger.info("Starting Batch Verification...")
     
-    # Initialize DALI (loads metadata from .gz files)
+    # Initialize DALI
     try:
-        from utils.dali_loader import dali_loader
-        dali_loader.download_dataset_metadata()
+        from services.dali_service import dali_service
+        all_ids = dali_service.get_all_ids()
     except Exception as e:
         logger.error(f"Failed to initialize DALI: {e}")
         return
 
-    # Find songs
-    songs = dali_loader.list_songs()
-    if not songs:
-        logger.error("No songs found in DALI dataset. Run create_mock_dali.py first.")
+    # Find a song with audio
+    if not all_ids:
+        logger.error("No songs found in DALI dataset.")
         return
         
-    song_id = songs[0]['id']
+    song_id = None
+    for sid in all_ids[:50]: # Check first 50
+        if dali_service.get_audio_path(sid, download_if_missing=False):
+            song_id = sid
+            break
+            
+    if not song_id:
+        logger.error("No downloaded audio files found. Run python backend/scripts/prepare_dali.py first.")
+        return
+
     logger.info(f"Testing with song: {song_id}")
     
     # Create job
